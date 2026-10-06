@@ -1,0 +1,13 @@
+{
+  "name": "auto-effort",
+  "owner": {
+    "name": "BySepStudio"
+  },
+  "description": "auto-effort: a Claude Code mod that picks /effort per prompt with Jev",
+  "plugins": [
+    {
+      "name": "auto-effort",
+      "source": "./"
+    }
+  ]
+}

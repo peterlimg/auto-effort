@@ -1,0 +1,9 @@
+{
+  "name": "auto-effort",
+  "version": "0.1.0",
+  "author": {
+    "name": "BySepStudio"
+  },
+  "description": "Picks /effort per prompt: Jev (TypeSafe AI) grades how hard the task is, and the turn runs at that level.",
+  "types": "./types/index.d.ts"
+}
