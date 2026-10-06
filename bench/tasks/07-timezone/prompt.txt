@@ -1,0 +1,1 @@
+Our reminder service sometimes says a meeting is "in the past" when it is not, but only for some users. Find and fix the bug.

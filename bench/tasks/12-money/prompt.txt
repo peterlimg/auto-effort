@@ -1,0 +1,1 @@
+Finance says the totals in the monthly report are sometimes off by a cent compared to their spreadsheet. Fix it.

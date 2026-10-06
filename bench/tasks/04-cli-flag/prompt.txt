@@ -1,0 +1,1 @@
+Add a `--upper` flag to cli.py that prints the result in upper case. Without the flag, output must not change.

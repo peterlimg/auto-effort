@@ -1,0 +1,1 @@
+withdraw() should reject invalid amounts: raise ValueError for zero, negative, or more than the balance. Keep the existing behaviour for valid amounts.

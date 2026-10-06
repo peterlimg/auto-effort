@@ -1,2 +1,3 @@
 # Written by Claude Code each time it loads the mod
 .claude-plugin/types/
+bench/results/

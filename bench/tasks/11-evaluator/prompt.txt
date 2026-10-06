@@ -1,0 +1,1 @@
+Implement evaluate(expr) in calc.py: it takes a string with numbers (ints or decimals), + - * /, parentheses and unary minus, and returns the result as a float with normal precedence. Do not use eval() or exec(). Raise ValueError for malformed input.

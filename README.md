@@ -33,6 +33,18 @@ Without a key, or when Jev fails or takes over 3s, your own `/effort` applies.
 - A message sent while a task runs can only raise its effort. A prompt queued with ctrl+x enter is judged for its own turn.
 - Messages you didn't write (subagent reports, notifications) aren't judged.
 
+## Benchmark
+
+`bench/run.py` runs the same tasks with the mod on and off and compares cost, tokens and pass rate. Each run copies a task's fixture repo to a temp dir, runs `claude -p` on its prompt, and grades the result with a hidden `check.py`. Both arms share the model, session effort, prompt and settings; only `--plugin-dir` differs.
+
+```sh
+bench/run.py                          # 12 tasks x 2 arms x 3 runs at --effort high
+bench/run.py --tasks 02,10 --runs 1   # a quick smoke run
+bench/run.py --effort medium          # let the mod raise as well as lower
+```
+
+Costs come from Claude Code's own `total_cost_usd`; the effort each request ran at comes from the session transcript. `--max-cost` (default $60) stops new runs once the total is spent.
+
 ## Develop
 
 ```sh

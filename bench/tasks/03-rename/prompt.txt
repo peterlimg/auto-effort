@@ -1,0 +1,1 @@
+Rename the function `calc` to `calculate_total` everywhere in this project.

@@ -1,0 +1,1 @@
+The discount rules are copy-pasted in shop.py, cart.py and quote.py, and they have started to drift apart. Move them into one shared function used by all three, matching what shop.py does today.

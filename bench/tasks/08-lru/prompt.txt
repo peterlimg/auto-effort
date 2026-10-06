@@ -1,0 +1,1 @@
+Implement LRUCache in lru.py: get(key) returns the value or None, put(key, value) inserts or updates, and when over capacity it evicts the least recently used key. Both operations should be O(1).

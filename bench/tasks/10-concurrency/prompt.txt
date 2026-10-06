@@ -1,0 +1,1 @@
+Under load the request counter in metrics.py reports fewer requests than we actually served. Fix it so counts are exact when record() is called from many threads.
