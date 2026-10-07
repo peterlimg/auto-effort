@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Hard Should a Computer Think? · auto-effort</title>
+<meta name="description" content="A Claude Code mod asks a small, fast model how hard each request is, then runs the turn at that effort. What happened when we measured it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="kicker">Claude Code · Field notes on a mod</div>
+  <h1>How Hard Should a Computer Think?</h1>
+  <p class="dek">An AI coding agent spends the same effort deciding whether to say “OK” as it does untangling a race condition. A small mod asks a second, much faster model to tell the two apart, before every turn. Then we measured whether it helped.</p>
+  <p class="byline"><span>BySepStudio</span> · October 7, 2026 · Every number on this page is drawn from the experiment’s own logs</p>
+</header>
+
+<figure class="hero">
+  <img src="art/dial.jpg" alt="A watercolor dial with five bands from green (low) to violet (max). A faint line marks the old setting, high; the needle has swung back to medium.">
+  <figcaption>The five settings of Claude Code’s <code>/effort</code>, from <i>low</i> to <i>max</i>. The faint line is where you left the dial; the needle is where this request needed it.</figcaption>
+</figure>
+
+<main>
+
+<!-- I -->
+<section class="chapter" id="one-dial">
+  <div class="numeral">I</div>
+  <h2>One dial for everything</h2>
+  <p class="lede">Claude Code has a setting called <code>/effort</code>. It controls how much the model is allowed to think before it answers, in five steps: <i>low, medium, high, xhigh</i> and <i>max</i>. More thinking is slower and costs more, and on a hard problem it is worth it.</p>
+  <p>But the dial is set once, for the whole session. Over an afternoon of work, the same setting applies to a request to rewrite a scheduler, to “what port does this use?”, and to the single word “yes.” It’s easy to leave it on <i>high</i> and pay for deep thought on every one.</p>
+  <p>Below are real requests from the experiment and from the session that built it. Flip the switch to see what a judge would have done with each.</p>
+
+  <figure class="wide ledger-figure">
+    <div class="figure-head">
+      <div class="figure-title">Sixteen benchmark tasks and a handful of real chat messages</div>
+      <div class="toggle" role="group" aria-label="Who sets the effort">
+        <button type="button" data-mode="fixed" aria-pressed="true">Everything at <b>high</b></button>
+        <button type="button" data-mode="jev" aria-pressed="false">Jev decides</button>
+      </div>
+    </div>
+    <div id="ledger" class="ledger"></div>
+    <figcaption>Benchmark picks are what Jev chose in the run where it was free to raise and lower (the same pick in all three runs unless marked). Chat picks are single recorded decisions. A score is shown where the decision log kept it.</figcaption>
+  </figure>
+
+  <p>Some of these surprised me. The one-word “yes” lands in three different places, and the next chapters explain why that is exactly right.</p>
+</section>
+
+<!-- II -->
+<section class="chapter" id="judge">
+  <div class="numeral">II</div>
+  <h2>A second opinion, in under a second</h2>
+  <figure class="inset right">
+    <img src="art/scale.jpg" alt="A watercolor balance: a small green slip of paper on one pan is outweighed by a tall stack of red pages on the other.">
+    <figcaption>The judge only needs to weigh the request, not answer it.</figcaption>
+  </figure>
+  <p class="lede">The judge is <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a>, a “System One” model from TypeSafe AI. The name borrows from Daniel Kahneman: fast, intuitive judgement rather than slow deliberation. Jev doesn’t write code. You give it a little state and a question, and it returns a number, a confidence and a probability for each answer.</p>
+  <p>The mod asks one question per prompt. Jev sees the request, the request before it, and the end of Claude’s last reply, and scores it on a five-point scale. That score becomes the effort.</p>
+
+  <div class="question-card wide" aria-label="The question the mod asks Jev">
+    <div class="qc-label">The whole question, verbatim</div>
+    <p class="qc-q">How much reasoning effort does a coding agent need for <code>request</code>? A short follow-up (“yes”, “do it”, “1”, “continue”) approves or continues the work proposed in <code>last_reply</code> or asked for in <code>previous_request</code>.</p>
+    <ol class="qc-scale">
+      <li data-level="low"><b>Trivial</b><span>a quick question, a lookup, or a one-line edit</span></li>
+      <li data-level="medium"><b>Small</b><span>a focused change in one or two files</span></li>
+      <li data-level="high"><b>Moderate</b><span>a feature or bug fix across several files, a non-obvious bug, or running a multi-step workflow such as a code review</span></li>
+      <li data-level="xhigh"><b>Hard</b><span>a cross-cutting refactor, tricky concurrency/security/performance work, or debugging with little to go on</span></li>
+      <li data-level="max"><b>Very hard</b><span>architecture or algorithm design where a wrong call is expensive</span></li>
+    </ol>
+  </div>
+
+  <p>Speed matters, because the judgement sits between pressing Enter and the model starting work. Here is every call the mod made over two days.</p>
+
+  <figure class="wide">
+    <div class="figure-title">How long Jev took to answer</div>
+    <div id="latency"></div>
+    <figcaption id="latency-caption"></figcaption>
+  </figure>
+
+  <p>A call costs next to nothing. Jev charges <span class="num">$0.042</span> per million input tokens, and a question with its context is a few thousand tokens, so a hundredth of a cent at most. If Jev is slow, unreachable or returns no score, the mod gets out of the way: your own setting applies, and the band says why.</p>
+</section>
+
+<!-- III -->
+<section class="chapter" id="band">
+  <div class="numeral">III</div>
+  <h2>The line above the prompt</h2>
+  <p class="lede">A tool that changes how hard a model thinks, silently, would be hard to trust. So the mod draws one line above the prompt, and that line has to answer three questions: what did Jev pick, what was actually sent, and how sure was it?</p>
+  <p>Try it. Pick a message, set the session’s own effort, and watch. Nothing is sent to Jev from this page and no API key is needed: each message replays the score, confidence and response time Jev actually returned for it.</p>
+
+  <figure class="wide sim">
+    <div class="sim-controls">
+      <div class="sim-group">
+        <div class="sim-label">Send a message</div>
+        <div id="sim-prompts" class="chips"></div>
+      </div>
+      <div class="sim-row">
+        <div class="sim-group">
+          <div class="sim-label">Your <code>/effort</code></div>
+          <div id="sim-session" class="seg" role="group" aria-label="Session effort"></div>
+        </div>
+        <div class="sim-group">
+          <div class="sim-label">Setting</div>
+          <label class="switch"><input type="checkbox" id="sim-raise"> <span>Let Jev raise effort</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="terminal" aria-live="polite">
+      <div class="term-bar"><i></i><i></i><i></i><span>claude — ~/workspace/shop</span></div>
+      <div class="term-body">
+        <div id="term-log" class="term-log"></div>
+        <div id="term-band" class="term-band"></div>
+        <div class="term-prompt"><span class="caret">›</span> <span id="term-input" class="term-input"></span><span class="cursor"></span></div>
+      </div>
+    </div>
+    <figcaption>A replica of the band. In Claude Code it is drawn by the mod’s <code>ui.render</code> hook; the button really toggles the mod.</figcaption>
+  </figure>
+
+  <div class="anatomy wide">
+    <div><b>▰▰▱▱▱ effort MEDIUM</b><span>The level this turn runs at, as a gauge and a word.</span></div>
+    <div><b>✓ sent</b><span>Read back from what Claude Code actually sent with the request, not from what the mod asked for. If they ever differ, the band says <i>⚠ model got X</i>.</span></div>
+    <div><b>(was high)</b><span>Your session’s own setting, when the turn runs at something else.</span></div>
+    <div><b>Jev 84% sure · 300ms</b><span>Jev’s confidence and how long it took to answer.</span></div>
+  </div>
+
+  <h3>The word “yes”</h3>
+  <p>The first version showed Jev only the message itself. Then, in the middle of building this mod, I typed “yes, fix” to approve a bug fix and watched the band drop to <i>low</i>. Jev had scored it 0.37: two words, nothing to do. It was wrong, but given what it could see, it was a reasonable answer.</p>
+  <p>The fix was to send the end of Claude’s last reply along with the request, and to tell Jev that a short follow-up approves whatever was proposed. After that, the same single word stopped meaning the same thing:</p>
+
+  <figure class="wide">
+    <div class="figure-title">Four times “yes” was judged after the fix, on Jev’s 0–4 scale</div>
+    <div id="yes-chart"></div>
+    <figcaption>Each “yes” followed a different reply, and Jev read each one in that light. The one scored <i>high</i> ran at the session’s <i>medium</i>, because raising was off. The dashed circle is the “yes, fix” that started it, judged before Jev could see the reply.</figcaption>
+  </figure>
+
+  <p>Long tasks bring their own edge cases, and each one needed a rule:</p>
+  <ul class="rules">
+    <li><b>A message sent while Claude is working</b> joins a turn that is already under way. It can only raise that turn’s effort, never lower it, because “also check the tests” shouldn’t make the rest of a hard job sloppier.</li>
+    <li><b>A queued message</b> (<kbd>ctrl+x</kbd> <kbd>enter</kbd>) waits for its own turn and is judged for that turn.</li>
+    <li><b>Messages nobody typed</b>, such as subagent reports and notifications, are never judged. Neither are subagents: only the main conversation changes.</li>
+    <li><b>Slash commands</b> keep your setting. <i>/code-review</i> is a workflow, not a sentence.</li>
+  </ul>
+</section>
+
+<!-- IV -->
+<section class="chapter" id="experiment">
+  <div class="numeral">IV</div>
+  <h2>The experiment</h2>
+  <p class="lede">A tidy demo proves nothing about cost. The question is simple: on the same tasks, with everything else held fixed, does letting Jev set the effort save anything, and does it break anything?</p>
+
+  <figure class="wide method">
+    <div class="method-flow">
+      <div class="step"><span class="step-n">1</span><b>A small repo</b><span>with a bug or a missing feature, fresh copy each run</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><span class="step-n">2</span><b>Claude Code, headless</b><span><code>claude -p</code> with the task’s prompt, <code>--effort high</code></span>
+        <div class="arms"><span class="arm off">Off arm: nothing else</span><span class="arm on">On arm: <code>--plugin-dir auto-effort</code></span></div></div>
+      <div class="arrow">→</div>
+      <div class="step"><span class="step-n">3</span><b>A hidden test</b><span><code>check.py</code> grades the result; Claude never sees it</span></div>
+    </div>
+    <figcaption>Sixteen tasks, from answering a question to finding a stale cache. Every task’s test was checked to fail on the original repo and pass with a reference fix. Runs were shuffled and interleaved so that both arms met the same time of day.</figcaption>
+  </figure>
+
+  <p>The first run was the one that matters most to people who leave the dial on <i>high</i>: twelve tasks, three runs of each, with and without the mod. That is 72 sessions. At the time Jev was allowed to raise as well, and it did once: it sent the timezone bug to <i>xhigh</i>.</p>
+
+  <div class="scoreboard wide" id="scoreboard"></div>
+
+  <figure class="wide stacks">
+    <img src="art/stacks.jpg" alt="Two watercolor stacks of coins. The left, burnt sienna, is about a third taller than the right, ochre.">
+    <div class="stack-label l"><b id="stack-off"></b><span>thinking tokens, mod off</span></div>
+    <div class="stack-label r"><b id="stack-on"></b><span>thinking tokens, mod on</span></div>
+    <figcaption>All the thinking in 36 runs per arm, painted to scale: one coin per 400 tokens. The next chart shows how much of the gap the mod caused.</figcaption>
+  </figure>
+
+  <p>Thinking fell by about a quarter. It would be easy to stop there, but not all of that quarter was the mod’s doing. The way to check is to split the tasks by what the mod actually did to them.</p>
+
+  <figure class="wide">
+    <div class="figure-title">Where the drop in thinking came from, starting from <i>high</i></div>
+    <div id="split"></div>
+    <figcaption id="split-caption"></figcaption>
+  </figure>
+
+  <p>On the tasks the mod lowered, thinking fell by more than half, and every run still passed. But look at the middle row. On six tasks the mod changed nothing, and they ran at the same effort in both arms, yet their thinking fell by about forty per cent anyway. That is noise. The same prompt at the same effort can think twice as long on one run as on the next, and with three runs per task, one long run moves the average a lot. Most of the headline quarter came from there.</p>
+  <p>So the honest claim is narrower. Where Jev lowered the effort, the model thought about half as much and lost nothing. Those were small tasks that hardly thought to begin with, so the tokens saved were few.</p>
+  <p>The bill barely moved for a second reason. Thinking is only a slice of what a session costs. Most of each run’s bill is reading the conversation so far, the system prompt, the tool definitions and the files, and none of that changes with effort.</p>
+  <p>Here is every task. Each line runs from the mod-off average to the mod-on average; the dot is colored by the effort the mod chose. Watch the tasks marked <i>high</i>: they ran at the same effort in both arms, so any gap there is chance.</p>
+
+  <figure class="wide">
+    <div class="figure-head">
+      <div class="toggle" role="group" aria-label="Experiment" id="run-tabs">
+        <button type="button" data-run="high" aria-pressed="true">Starting from <b>high</b></button>
+        <button type="button" data-run="medium" aria-pressed="false">Starting from <b>medium</b></button>
+        <button type="button" data-run="harder" aria-pressed="false">Harder tasks</button>
+      </div>
+      <div class="toggle small" role="group" aria-label="Measure" id="metric-tabs">
+        <button type="button" data-metric="thinking_tokens" aria-pressed="true">Thinking</button>
+        <button type="button" data-metric="cost" aria-pressed="false">Cost</button>
+        <button type="button" data-metric="seconds" aria-pressed="false">Time</button>
+      </div>
+    </div>
+    <p class="run-dek" id="run-dek"></p>
+    <div id="dumbbell"></div>
+    <div class="legend" id="legend"></div>
+    <figcaption>Averages over three runs per task per arm. <i>Pass</i> counts the runs whose hidden test passed, off · on.</figcaption>
+  </figure>
+
+  <aside class="note wide">
+    <h4>The one failure</h4>
+    <p id="failure-note"></p>
+  </aside>
+</section>
+
+<!-- V -->
+<section class="chapter" id="raising">
+  <div class="numeral">V</div>
+  <h2>Turning it up didn’t help</h2>
+  <p class="lede">If lowering effort on easy work is free, raising it on hard work should be where the quality comes from. That was the original idea: let Jev push a tricky timezone bug up to <i>xhigh</i>.</p>
+  <p>So I ran the experiment again from <i>medium</i>, where Jev had room to go both ways, and then once more with four harder tasks written to need it: free calendar slots, a stale stock cache, a hand-written CSV parser and a dependency sort.</p>
+
+  <figure class="wide">
+    <div class="figure-title">What the mod changed, against the same runs without it</div>
+    <div id="deltas"></div>
+    <figcaption>Change in total thinking tokens and total cost, mod on against mod off, and the pass counts. Bars to the left are savings.</figcaption>
+  </figure>
+
+  <p>Raising did exactly what it says: more thinking, sometimes twice as much. It didn’t fix anything, because there was nothing to fix. At <i>medium</i>, every task already passed without the mod. The harder tasks passed twelve times out of twelve with or without the extra effort, and the extra thinking cost fifteen per cent more.</p>
+  <p class="pull">Lowering cost nothing in quality. Raising cost money and bought nothing.</p>
+  <p>So the mod now only lowers by default. If Jev thinks a request deserves more than your setting, the band says <i>(Jev: xhigh, capped)</i> and your setting stands. Raising is one switch away for anyone whose tasks are harder than these.</p>
+</section>
+
+<!-- VI -->
+<section class="chapter" id="cache">
+  <div class="numeral">VI</div>
+  <h2>Does switching break the cache?</h2>
+  <figure class="wide shelf">
+    <img src="art/shelf.jpg" alt="A watercolor bookshelf of indigo and grey books, with one thin red book at the end.">
+    <figcaption>Each request re-sends the whole conversation. With a warm cache almost all of it is read back, cheaply, as it was; only the newest sliver is new.</figcaption>
+  </figure>
+  <p class="lede">There was one way this could have backfired. Claude Code leans hard on prompt caching: each request re-sends the conversation, and if the cache is warm, that history is billed at a fraction of the price. If changing the effort from one turn to the next forced the cache to start over, every switch would cost far more than the thinking it saved.</p>
+  <p>It doesn’t. I went through every Claude Code session on this machine and compared requests sent right after an effort change with requests where the effort stayed the same.</p>
+  <div class="cache-compare wide" id="cache-compare"></div>
+  <p>The two rates are the same within noise. Two of the 32 requests after a change missed the cache, about the rate at which requests with no change at all miss it.</p>
+</section>
+
+<!-- Coda -->
+<section class="chapter coda" id="coda">
+  <div class="numeral">·</div>
+  <h2>A budget, not a dial</h2>
+  <p class="lede">The useful way to think about effort is as a budget you spend one request at a time. Spending it on “yes” buys nothing. A judge that costs a hundredth of a cent and a second of latency can tell most requests apart well enough to stop that, without touching the work that needed it.</p>
+  <p>What it can’t yet show is the other half of the bargain: that spending <i>more</i> on hard problems pays off. On these sixteen tasks it didn’t. Harder, longer work might be different, and the benchmark is in the repository for anyone who wants to find out.</p>
+
+  <aside class="note caveats wide">
+    <h4>What this doesn’t show</h4>
+    <ul>
+      <li>Sixteen small tasks, three runs per arm. A difference of one pass in 36 is noise, and so are thinking-token swings of 40% on tasks the mod didn’t touch (chapter IV).</li>
+      <li>One model, Claude Code’s default, run headless. Interactive sessions have longer contexts, where the cost share of thinking differs.</li>
+      <li>Costs are Claude Code’s own <code>total_cost_usd</code>, not an invoice.</li>
+      <li>Jev doesn’t always give the same answer twice: one task got <i>medium</i> in two runs and <i>high</i> in the third.</li>
+      <li>The chat examples come from one person’s two days of work.</li>
+    </ul>
+  </aside>
+
+  <div class="install wide">
+    <div>
+      <h4>Try it</h4>
+      <p>Inside Claude Code:</p>
+      <pre><code>/plugin install auto-effort --marketplace peterlimg/auto-effort</code></pre>
+      <p>Then give it a TypeSafe key in the environment Claude Code starts with:</p>
+      <pre><code>export TYPESAFE_API_KEY=…</code></pre>
+      <p><code>/auto-effort</code> prints what Jev picked for your recent turns and what each one actually ran at.</p>
+    </div>
+    <div>
+      <h4>Run the experiment</h4>
+      <pre><code>bench/run.py                         # 12 tasks × 2 arms × 3 runs
+bench/run.py --effort medium         # let it raise, too
+bench/run.py --tasks 13,14,15,16     # the harder four</code></pre>
+      <p>Each run copies a fixture repo, runs <code>claude -p</code>, and grades it with a hidden test. Both arms differ only by <code>--plugin-dir</code>.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="colophon">
+  <p><b>About this page.</b> The benchmark numbers come from three runs of <code>bench/run.py</code> on October 7, 2026. Jev’s scores, timings and the chat examples come from the mod’s decision log, and the cache figures from Claude Code’s session transcripts. All of it is gathered by <code>site/build_data.py</code>. The watercolors are painted in code by <code>site/paint.py</code>: flat shapes washed with OpenCV, with wobbled edges, pigment pooling at the rim, and granulation in the paper’s grain. The coin stacks are drawn to the data.</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
