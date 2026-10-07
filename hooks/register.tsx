@@ -113,11 +113,11 @@ async function log($: EngineInterface, entry: object) {
 // The /auto-effort report: the last turns (all sessions), newest last, with what Jev picked and what ran.
 export function report(logText: string): string {
   const turns = logText.split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(x => x.kind === 'turn').slice(-REPORT_TURNS)
-  if (!turns.length) return 'auto-effort: no turns logged yet.'
+  if (!turns.length) return 'no turns logged yet.'
   const level = (x: unknown) => LEVELS.indexOf(x as Effort)
   const moved = { lowered: 0, raised: 0, same: 0 }
   const rows = turns.map(t => {
-    const ran = (t.efforts as unknown[]).map(String).join('/') || '-'
+    const ran = (t.efforts as unknown[]).map(String).join('/') || '·' // not '-': the reply is markdown, and a leading '- ' makes a list
     const top = Math.max(...(t.efforts as unknown[]).map(level))
     if (t.session !== undefined && t.efforts.length) {
       const d = top - level(t.session)
@@ -125,11 +125,11 @@ export function report(logText: string): string {
     }
     const jev = t.jev === 'off' ? 'off'
       : t.jev?.phase === 'picked' ? `${t.jev.pick} ${t.jev.score.toFixed(2)} (${Math.round(t.jev.confidence * 100)}%)`
-      : t.jev?.phase === 'kept' ? t.jev.reason : '-'
-    return `${ran.padEnd(14)}${String(t.session ?? '-').padEnd(9)}${String(t.requests).padStart(4)}${String(t.outputTokens).padStart(8)}  ${jev.padEnd(28)}${String(t.prompt).replace(/\s+/g, ' ').slice(0, 50)}`
+      : t.jev?.phase === 'kept' ? t.jev.reason : '·'
+    return `${ran.padEnd(14)}${String(t.session ?? '·').padEnd(9)}${String(t.requests).padStart(4)}${String(t.outputTokens).padStart(8)}  ${jev.padEnd(28)}${String(t.prompt).replace(/\s+/g, ' ').slice(0, 50)}`
   })
   return [
-    `auto-effort, last ${turns.length} turns: ${moved.lowered} lowered, ${moved.raised} raised, ${moved.same} unchanged vs the session's effort`,
+    `last ${turns.length} turns: ${moved.lowered} lowered, ${moved.raised} raised, ${moved.same} unchanged vs the session's effort`,
     '',
     `${'ran at'.padEnd(14)}${'session'.padEnd(9)}${'reqs'.padStart(4)}${'out tok'.padStart(8)}  ${'jev'.padEnd(28)}prompt`,
     ...rows,
@@ -274,7 +274,7 @@ export const register: Register = (on, options) => {
     const arg = e.args.trim()
     if (arg === 'on' || arg === 'off') {
       await setOff($, arg === 'off')
-      return { text: `auto-effort: ${arg}` }
+      return { text: arg === 'on' ? 'on: Jev picks the effort' : 'off: your session effort applies' }
     }
     return { text: report(await $.fs.read(await logPath($)).catch(() => '')) }
   })

@@ -194,7 +194,7 @@ test('/auto-effort reports each turn from the mod\'s own log: what Jev picked an
   const s = await setup($, on)
   const run = async () => ((await $.command.run({ command: 'auto-effort', args: '', origin: typed } as any)) as any).text as string
 
-  expect(await run()).toBe('auto-effort: no turns logged yet.')
+  expect(await run()).toBe('no turns logged yet.')
   s.jev = scored(0.2)
   await $.prompt.submit({ origin: typed, text: 'what is 2+2' } as any)
   await $.turn.start({ text: 'what is 2+2', turnId: 't' } as any)
@@ -211,11 +211,11 @@ test('/auto-effort off stops asking Jev and /auto-effort on resumes', async ($, 
   const s = await setup($, on)
   const run = async (args: string) => ((await $.command.run({ command: 'auto-effort', args, origin: typed } as any)) as any).text as string
 
-  expect(await run('off')).toBe('auto-effort: off')
+  expect(await run('off')).toBe('off: your session effort applies')
   await $.prompt.submit({ origin: typed, text: 'refactor the parser' } as any)
   expect(s.bodies.length).toBe(0)
 
-  expect(await run(' on ')).toBe('auto-effort: on')
+  expect(await run(' on ')).toBe('on: Jev picks the effort')
   await $.prompt.submit({ origin: typed, text: 'refactor the parser' } as any)
   expect(s.bodies.length).toBe(1)
 })
