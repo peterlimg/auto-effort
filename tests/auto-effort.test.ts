@@ -34,7 +34,7 @@ async function setup($: any, on: any) {
   on('fs.read', () => ({ value: s.log }))
   on('fs.write', (_: any, e: any) => { s.log = e.text; return { value: undefined } })
   on('ui.status', () => ({ value: undefined }))
-  on('ui.render', () => ({ type: 'Box' })) // the engine's own band, drawn when the mod passes
+  on('ui.render', () => ({ type: 'Box', props: { flexDirection: 'row' }, children: [{ type: 'Text', children: ['another mod'] }] })) // what's drawn below us in the band
   on('turn.step', async function* (_: any, e: any) {
     s.sent.push(e.effort)
     const during = s.duringStep
@@ -57,7 +57,7 @@ test('Jev picks the main thread effort and the band shows it; failures, subagent
   const { sent, bodies, step, shows } = s
 
   await $.prompt.submit({ origin: typed, text: 'redesign the sync engine' } as any)
-  expect(bodies[0]).toMatchObject({ model: 'jev-latest', state: { previous_request: null, request: 'redesign the sync engine' }, questions: { effort: { type: 'score' } } })
+  expect(bodies[0]).toMatchObject({ model: 'jev-latest', state: { previous_request: null, last_reply: null, request: 'redesign the sync engine' }, questions: { effort: { type: 'score' } } })
   await step()
   await step('sub-1')
   expect(sent).toEqual(['xhigh', 'medium'])
@@ -65,8 +65,10 @@ test('Jev picks the main thread effort and the band shows it; failures, subagent
   await shows(/effort XHIGH/)
   await shows(/✓ sent/)
   await shows(/\(was medium\) · Jev 80% sure/)
-  // Drawn on one line: nothing in the band may stack as a column (a JSX fragment is a column Box).
-  expect(JSON.stringify(await s.band.find({ type: 'Box', text: /auto-effort/ }))).not.toContain('column')
+  // Our line stays one row (a JSX fragment would be a column Box); the one column stacks it on what's below.
+  const band = JSON.stringify(await s.band.find({ type: 'Box', text: /auto-effort/ }))
+  expect(band.match(/"flexDirection":"column"/g)?.length).toBe(1)
+  await shows(/another mod/) // another mod's band line still shows
 
   s.jev = down // Jev down: the previous pick must not linger
   await $.prompt.submit({ origin: typed, text: 'hi' } as any)
@@ -74,7 +76,7 @@ test('Jev picks the main thread effort and the band shows it; failures, subagent
   expect(sent.at(-1)).toBe('medium')
   await shows(/kept session effort MEDIUM/)
   await shows(/Jev HTTP 529/)
-  expect(bodies[1].state).toEqual({ previous_request: 'redesign the sync engine', request: 'hi' }) // a follow-up is judged with the task before it
+  expect(bodies[1].state).toMatchObject({ previous_request: 'redesign the sync engine', request: 'hi' }) // a follow-up is judged with the task before it
 
   s.jev = scored(0)
   s.hangs = true // Jev hangs: the band says so, then the prompt goes through after the timeout at the session's effort
@@ -219,4 +221,16 @@ test('by default Jev only lowers: a pick above the session effort is capped ther
   await $.prompt.submit({ origin: typed, text: 'what is 2+2' } as any)
   await s.step()
   expect(s.sent.at(-1)).toBe('low')
+})
+
+test('a short approval is judged with the end of the last reply: what it approves', async ($, on) => {
+  const s = await setup($, on)
+  await $.prompt.submit({ origin: typed, text: 'do next' } as any)
+  await $.turn.complete({ turnId: 't', reason: 'answer', isAborted: false, durationMs: 1, answer: 'x'.repeat(5000) + ' Should I add the cap and commit it?' } as any)
+  await $.turn.complete({ turnId: 'sub', agentId: 'sub-1', reason: 'answer', isAborted: false, durationMs: 1, answer: 'a subagent report' } as any) // not the main reply
+  await $.prompt.submit({ origin: typed, text: 'yes, fix' } as any)
+  const state = s.bodies.at(-1).state
+  expect(state).toMatchObject({ previous_request: 'do next', request: 'yes, fix' })
+  expect(state.last_reply.endsWith('Should I add the cap and commit it?')).toBe(true)
+  expect(state.last_reply.length).toBe(1500)
 })

@@ -34,7 +34,7 @@ In the benchmark below, lowering from `high` cut thinking tokens 27% with no cha
 
 ## How it decides
 
-- Each prompt you write is sent to Jev as one Score question, with your previous prompt as context, so "yes" or "continue" is judged against the task it continues.
+- Each prompt you write is sent to Jev as one Score question, with your previous prompt and the end of the last reply as context, so "yes, fix" is judged against what it approves.
 - Only the main conversation is changed. Subagents, slash-command turns and models without an effort setting keep your own effort.
 - A message sent while a task runs can only raise its effort (up to your setting, unless `raise` is on). A prompt queued with ctrl+x enter is judged for its own turn.
 - Messages you didn't write (subagent reports, notifications) aren't judged.

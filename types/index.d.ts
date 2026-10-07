@@ -17,6 +17,8 @@ declare module 'claude-code' {
       /** A prompt queued (ctrl+x enter) to run as its own turn, and its pick, held until that turn starts. */
       queued: { text: string; judgement: Judgement | null } | null
       /** The running main-thread turn, as its requests went out; logged at turn.complete. */
+      /** The end of the main thread's last reply: what a short "yes, fix" approves. */
+      lastReply: string | null
       run: { turnId: string; prompt: string; session?: Effort | number; requests: number; efforts: (Effort | number)[]; outputTokens: number } | null
     }
   }

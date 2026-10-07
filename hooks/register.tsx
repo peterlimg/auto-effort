@@ -19,12 +19,13 @@ const previous = atom({ plugin: 'auto-effort', key: 'previous' } as const, null)
 const sessionEffort = atom({ plugin: 'auto-effort', key: 'sessionEffort' } as const, null)
 const queued = atom({ plugin: 'auto-effort', key: 'queued' } as const, null)
 const run = atom({ plugin: 'auto-effort', key: 'run' } as const, null)
+const lastReply = atom({ plugin: 'auto-effort', key: 'lastReply' } as const, null)
 
 // One Score question; its criteria are ordered like LEVELS, so round(score) indexes it.
 const QUESTION = {
   type: 'score',
   instructions:
-    'How much reasoning effort does a coding agent need for `request`? A short follow-up ("yes", "do it", "continue") carries on the work `previous_request` asked for.',
+    'How much reasoning effort does a coding agent need for `request`? A short follow-up ("yes", "do it", "1", "continue") approves or continues the work proposed in `last_reply` or asked for in `previous_request`.',
   criteria: [
     'Trivial: a quick question, a lookup, or a one-line edit',
     'Small: a focused change in one or two files',
@@ -42,7 +43,7 @@ function withTimeout<T>($: EngineInterface, ms: number, work: Promise<T>): Promi
   return Promise.race([work, timeout]).finally(() => stop.abort())
 }
 
-async function judge($: EngineInterface, text: string, before: string | null): Promise<Judgement> {
+async function judge($: EngineInterface, text: string, before: string | null, reply: string | null): Promise<Judgement> {
   const key = await $.env.get('TYPESAFE_API_KEY')
   if (!key) return { phase: 'kept', reason: 'no TYPESAFE_API_KEY' }
 
@@ -50,10 +51,10 @@ async function judge($: EngineInterface, text: string, before: string | null): P
   const res = await withTimeout($, TIMEOUT_MS, $.http.fetch(JEV_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    // ponytail: chars not tokens; 4k + 16k chars stays well under Jev's 32k-token state budget
+    // ponytail: chars not tokens; 4k + 1.5k + 16k chars stays well under Jev's 32k-token state budget
     body: JSON.stringify({
       model: 'jev-latest',
-      state: { previous_request: before?.slice(0, 4000) ?? null, request: text.slice(0, 16000) },
+      state: { previous_request: before?.slice(0, 4000) ?? null, last_reply: reply, request: text.slice(0, 16000) },
       questions: { effort: QUESTION },
     }),
   }))
@@ -144,7 +145,7 @@ export const register: Register = (on, options) => {
       await update($, judgement, () => ({ phase: 'asking' }))
       $.ui.status('effort: asking Jev...')
     }
-    const judged = await judge($, e.text, before).catch((): Judgement => ({ phase: 'kept', reason: 'Jev unreachable' }))
+    const judged = await judge($, e.text, before, await read($, lastReply)).catch((): Judgement => ({ phase: 'kept', reason: 'Jev unreachable' }))
     // An aside can only raise a running pick. With none running the turn is at the session's effort,
     // which we can't compare against, so the aside leaves it alone.
     let j: Judgement | null = judged
@@ -212,6 +213,8 @@ export const register: Register = (on, options) => {
 
   // One log line per main-thread turn: what Jev said, and what the requests actually ran at.
   on('turn.complete', async ($, e, next) => {
+    // What the agent last proposed or asked: a "yes, fix" approves that, so Jev needs it. Its end carries the ask.
+    if (!e.agentId && e.answer) await update($, lastReply, () => e.answer.slice(-1500))
     const r = await read($, run)
     if (!e.agentId && r?.turnId === e.turnId) {
       await update($, run, () => null)
@@ -237,6 +240,8 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
+    // The band is shared: other mods draw here too, so stack our line on whatever the rest of the chain draws.
+    const below = await next(e)
     const j = await read($, judgement)
     const off = await read($, isOff)
     const session = await read($, sessionEffort)
@@ -254,7 +259,12 @@ export const register: Register = (on, options) => {
       />
     )
     // One line: `<>...</>` is a column Box here, so every group of parts is a row Box.
-    const row = (body: JSX.Element) => <Box flexDirection="row" paddingX={1}><Text bold>» auto-effort </Text>{body}{toggle}</Box>
+    const row = (body: JSX.Element) => (
+      <Box flexDirection="column">
+        <Box flexDirection="row" paddingX={1}><Text bold>» auto-effort </Text>{body}{toggle}</Box>
+        {below}
+      </Box>
+    )
     // The effort a turn runs at when the mod doesn't change it, once a request has shown it.
     const sessionText = session === null ? 'session effort' : `session effort ${String(session).toUpperCase()}`
 
