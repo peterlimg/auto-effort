@@ -17,6 +17,7 @@ async function setup($: any, on: any) {
     bodies: [] as any[],
     heads: 0, // warm-up HEADs that kept the connection to Jev open
     log: '',
+    otherSession: undefined as (() => Promise<void>) | undefined,
     sent: [] as unknown[],
     step: async (agentId?: string) => {
       for await (const _ of $.turn.step({ turnId: 't', index: 0, model: 'opus', effort: 'medium', messageCount: 1, agentId }));
@@ -35,6 +36,13 @@ async function setup($: any, on: any) {
   mock.env(on, { TYPESAFE_API_KEY: 'test-key', HOME: '/home/me' })
   on('fs.read', () => ({ value: s.log }))
   on('fs.write', (_: any, e: any) => { s.log = e.text; return { value: undefined } })
+  on('fs.exists', () => ({ value: true }))
+  on('fs.stat', () => ({ value: { kind: 'file', size: s.log.length, mtimeMs: 0, isLink: false } }))
+  on('process.run', async (_: any, e: any) => { // the log's `cat >> path`; another session may write meanwhile
+    await s.otherSession?.()
+    s.log += e.init.stdin
+    return { value: { exitCode: 0, stdout: '', stderr: '' } }
+  })
   on('ui.status', () => ({ value: undefined }))
   on('ui.render', () => ({ type: 'Box', props: { flexDirection: 'row' }, children: [{ type: 'Text', children: ['another mod'] }] })) // what's drawn below us in the band
   on('turn.step', async function* (_: any, e: any) {
@@ -218,6 +226,14 @@ test('/auto-effort off stops asking Jev and /auto-effort on resumes', async ($, 
   expect(await run(' on ')).toBe('on: Jev picks the effort')
   await $.prompt.submit({ origin: typed, text: 'refactor the parser' } as any)
   expect(s.bodies.length).toBe(1)
+})
+
+test('sessions logging at once keep each other\'s lines', async ($, on) => {
+  const s = await setup($, on)
+  s.otherSession = async () => { s.log += '{"kind":"decision","prompt":"from another session"}\n' }
+  await $.prompt.submit({ origin: typed, text: 'refactor the parser' } as any)
+  const prompts = s.log.trim().split('\n').map(l => JSON.parse(l).prompt)
+  expect(prompts).toEqual(['from another session', 'refactor the parser'])
 })
 
 test('by default Jev only lowers: a pick above the session effort is capped there, and the band says so', async ($, on) => {

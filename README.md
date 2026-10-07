@@ -30,7 +30,7 @@ Without a key, or when Jev fails or takes over 3s, your own `/effort` applies.
 
 - **`raise`** (default off): let Jev raise effort above your session setting for hard tasks. Off, a higher pick is capped at your setting and the band shows `(Jev: xhigh, capped)`. Set it in `/config`, or in settings under `pluginConfigs.auto-effort.raise`.
 
-In the benchmark below, lowering from `high` cut thinking tokens 27% with no change in pass rate, while raising from `medium` cost 4-15% more and changed no outcomes. So it's off by default.
+In the benchmark below, on the tasks Jev lowered from `high`, thinking fell by about half (1,164 to 502 tokens a run) and every run still passed. Those were small tasks, so the bill barely moved. Raising from `medium` cost 4-15% more and changed no outcomes. So it's off by default.
 
 ## How it decides
 

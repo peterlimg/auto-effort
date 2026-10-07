@@ -6,6 +6,7 @@ import type { Effort, Judgement } from '../types'
 const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
 const TIMEOUT_MS = 3000
 const LOG_LINES = 1000
+const LOG_TRIM_BYTES = 2_000_000 // under fs.read's 4 MiB cap
 const REPORT_TURNS = 12
 // A fresh TLS connection to Jev costs ~550ms on top of its ~250ms answer, and an idle one is dropped within a few
 // minutes. So while the session is in use, an unauthenticated HEAD (a free 405) keeps the host's connection open.
@@ -98,15 +99,18 @@ async function judge($: EngineInterface, text: string, before: string | null, re
 }
 
 // One JSON line per judged prompt, for monitoring; outside the mod folder so writing it never reloads the mod.
-// ponytail: read-rewrite of the whole file (fs has no append), capped at LOG_LINES
 async function logPath($: EngineInterface) {
   return `${await $.env.get('HOME')}/.claude/auto-effort/decisions.jsonl`
 }
 
+// Appended (fs has no append), so sessions logging at once don't drop each other's lines.
 async function log($: EngineInterface, entry: object) {
   const path = await logPath($)
-  const old = await $.fs.read(path).catch(() => '')
-  const lines = [...old.split('\n').filter(Boolean), JSON.stringify(entry)].slice(-LOG_LINES)
+  if (!(await $.fs.exists(path))) await $.fs.write(path, '') // makes the folder
+  await $.process.run(['sh', '-c', 'cat >> "$1"', 'sh', path], { stdin: JSON.stringify(entry) + '\n' })
+  // ponytail: a trim racing another session's append can drop that one line; once per LOG_TRIM_BYTES of log
+  if ((await $.fs.stat(path)).size < LOG_TRIM_BYTES) return
+  const lines = (await $.fs.read(path)).split('\n').filter(Boolean).slice(-LOG_LINES)
   await $.fs.write(path, lines.join('\n') + '\n')
 }
 
