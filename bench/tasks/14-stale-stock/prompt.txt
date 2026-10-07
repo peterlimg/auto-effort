@@ -1,0 +1,1 @@
+Stock levels in the shop sometimes show the old number for a while after a restock or a sale. Find out why and fix it, without making lookups slow again (we added the cache because the database is slow).

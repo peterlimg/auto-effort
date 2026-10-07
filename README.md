@@ -1,6 +1,6 @@
 # auto-effort
 
-A Claude Code mod that picks `/effort` for each prompt. [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) (TypeSafe AI) grades how hard the request is, and the turn's model requests run at that level: `low`, `medium`, `high`, `xhigh` or `max`.
+A Claude Code mod that picks `/effort` for each prompt. [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) (TypeSafe AI) grades how hard the request is, and the turn's model requests run at that level: `low`, `medium`, `high`, `xhigh` or `max`. By default it only lowers effort below your own setting; raising is opt-in (see Settings).
 
 ```
 » auto-effort ▰▰▰▱▱ effort HIGH ✓ sent  (was medium) · Jev 84% sure · 300ms [Turn off]
@@ -25,6 +25,12 @@ Without a key, or when Jev fails or takes over 3s, your own `/effort` applies.
 - **The band above the prompt** shows the level in use, whether the request was actually sent at it (`✓ sent`), Jev's confidence, and a **Turn off / Turn on** button.
 - **`/auto-effort`** prints the last turns: what Jev picked, what each turn's requests ran at, and how many turns were lowered or raised from your session's effort.
 - **`~/.claude/auto-effort/decisions.jsonl`** keeps one JSON line per judged prompt and per turn.
+
+## Settings
+
+- **`raise`** (default off): let Jev raise effort above your session setting for hard tasks. Off, a higher pick is capped at your setting and the band shows `(Jev: xhigh, capped)`. Set it in `/config`, or in settings under `pluginConfigs.auto-effort.raise`.
+
+In the benchmark below, lowering from `high` cut thinking tokens 27% with no change in pass rate, while raising from `medium` cost 4-15% more and changed no outcomes. So it's off by default.
 
 ## How it decides
 

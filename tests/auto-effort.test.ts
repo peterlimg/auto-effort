@@ -50,7 +50,9 @@ async function setup($: any, on: any) {
   return Object.assign(s, { band })
 }
 
-test('Jev picks the main thread effort and the band shows it; failures, subagents and slash commands are left alone', async ($, on) => {
+const canRaise = { options: { raise: true } } // these tests raise above the session's medium
+
+test('Jev picks the main thread effort and the band shows it; failures, subagents and slash commands are left alone', canRaise, async ($, on) => {
   const s = await setup($, on)
   const { sent, bodies, step, shows } = s
 
@@ -104,7 +106,7 @@ test('Jev picks the main thread effort and the band shows it; failures, subagent
   expect(sent.at(-1)).toBe('max')
 })
 
-test('a long task: mid-turn messages only raise a running pick, and nothing stale or malformed applies', async ($, on) => {
+test('a long task: mid-turn messages only raise a running pick, and nothing stale or malformed applies', canRaise, async ($, on) => {
   const s = await setup($, on)
   const { sent, step, shows } = s
   const aside = (text: string) => $.prompt.submit({ origin: typed, text, turnId: 't' } as any)
@@ -199,4 +201,22 @@ test('/auto-effort reports each turn from the mod\'s own log: what Jev picked an
   const text = await run()
   expect(text).toContain('last 1 turns: 1 lowered, 0 raised, 0 unchanged')
   expect(text).toMatch(/^low\s+medium\s+2\s+42\s+low 0\.20 \(80%\)\s+what is 2\+2$/m)
+})
+
+test('by default Jev only lowers: a pick above the session effort is capped there, and the band says so', async ($, on) => {
+  const s = await setup($, on)
+  await s.step() // a request shows the session's effort (medium)
+
+  s.jev = scored(3) // xhigh is capped at medium
+  await $.prompt.submit({ origin: typed, text: 'redesign the sync engine' } as any)
+  await s.step()
+  expect(s.sent.at(-1)).toBe('medium')
+  await s.shows(/effort MEDIUM/)
+  await s.shows(/✓ sent/)
+  await s.shows(/\(Jev: xhigh, capped\)/)
+
+  s.jev = scored(0) // low still applies
+  await $.prompt.submit({ origin: typed, text: 'what is 2+2' } as any)
+  await s.step()
+  expect(s.sent.at(-1)).toBe('low')
 })

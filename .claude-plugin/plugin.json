@@ -5,5 +5,13 @@
     "name": "BySepStudio"
   },
   "description": "Picks /effort per prompt: Jev (TypeSafe AI) grades how hard the task is, and the turn runs at that level.",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "raise": {
+      "type": "boolean",
+      "title": "Let Jev raise effort",
+      "description": "Off (default): Jev can only lower effort below your session setting. On: it can also raise it for hard tasks. In benchmarks, raising cost 4-15% more without changing pass rates.",
+      "default": false
+    }
+  }
 }

@@ -106,7 +106,16 @@ export function report(logText: string): string {
   ].join('\n')
 }
 
-export const register: Register = on => {
+// The effort a pick runs at: capped at the session's own effort unless raising is allowed.
+function applied(pick: Effort, session: unknown, canRaise: boolean): Effort {
+  const cap = LEVELS.indexOf(session as Effort)
+  return !canRaise && cap >= 0 && LEVELS.indexOf(pick) > cap ? LEVELS[cap]! : pick
+}
+
+export const register: Register = (on, options) => {
+  // Benchmarks (bench/) found raising cost 4-15% more with no change in pass rate, so it's opt-in.
+  const canRaise = options.raise === true
+
   // Grade the prompt before it enters, so the turn's first request already uses the pick.
   on('prompt.submit', async ($, e, next) => {
     // Only requests a person wrote are judged. A subagent's report, a task notification or a peer's message
@@ -145,7 +154,8 @@ export const register: Register = on => {
     if (waits) await update($, queued, () => ({ text: e.text, judgement: judged }))
     else {
       await update($, judgement, () => j)
-      $.ui.status(j?.phase === 'picked' ? `effort: ${j.pick} (jev ${j.confidence.toFixed(2)})` : undefined)
+      const use = j?.phase === 'picked' ? applied(j.pick, await read($, sessionEffort), canRaise) : undefined
+      $.ui.status(j?.phase === 'picked' ? `effort: ${use} (jev ${j.confidence.toFixed(2)})` : undefined)
     }
     await log($, {
       kind: 'decision',
@@ -154,7 +164,7 @@ export const register: Register = on => {
       queued: waits,
       prompt: e.text.slice(0, 120),
       jev: judged,
-      applies: waits ? 'at its own turn' : j?.phase === 'picked' ? j.pick : 'session',
+      applies: waits ? 'at its own turn' : j?.phase === 'picked' ? applied(j.pick, await read($, sessionEffort), canRaise) : 'session',
     }).catch(() => {})
 
     return next(e)
@@ -184,7 +194,7 @@ export const register: Register = on => {
     const j = (await read($, isOff)) ? null : await read($, judgement)
     const pick = j?.phase === 'picked' ? j.pick : undefined
 
-    const result = yield* next(pick ? { ...e, effort: pick } : e)
+    const result = yield* next(pick ? { ...e, effort: applied(pick, e.effort, canRaise) } : e)
     // Proof, not intent: the effort the bottom of the chain (the engine) actually received.
     const sent = next.trace.at(-1)?.received.effort
     // Written onto the latest pick only if it is still the one this step sent: a mid-turn raise
@@ -256,15 +266,16 @@ export const register: Register = on => {
     }
 
     // A 5-cell gauge, filled up to the pick: ▰▰▰▱▱ = high.
-    const n = LEVELS.indexOf(j.pick) + 1
-    const note = j.from === undefined || j.from === j.pick ? '' : `  (was ${j.from})`
+    const use = applied(j.pick, session, canRaise)
+    const n = LEVELS.indexOf(use) + 1
+    const note = (j.from === undefined || j.from === use ? '' : `  (was ${j.from})`) + (use === j.pick ? '' : `  (Jev: ${j.pick}, capped)`)
     return row(
       <Box flexDirection="row">
-        <Text color={COLORS[j.pick]}>{'▰'.repeat(n) + '▱'.repeat(LEVELS.length - n)}</Text>
-        <Text color={COLORS[j.pick]} bold>{` effort ${j.pick.toUpperCase()}`}</Text>
+        <Text color={COLORS[use]}>{'▰'.repeat(n) + '▱'.repeat(LEVELS.length - n)}</Text>
+        <Text color={COLORS[use]} bold>{` effort ${use.toUpperCase()}`}</Text>
         {j.sent === undefined
           ? <Text dimColor>{' · not sent yet'}</Text>
-          : j.sent === j.pick
+          : j.sent === use
             ? <Text color="green">{' ✓ sent'}</Text>
             : <Text color="yellow">{` ⚠ model got ${j.sent}`}</Text>}
         <Text dimColor>{`${note} · Jev ${Math.round(j.confidence * 100)}% sure · ${Math.round(j.ms)}ms `}</Text>

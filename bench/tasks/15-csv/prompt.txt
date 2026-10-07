@@ -1,0 +1,1 @@
+Implement parse_csv(text) in csvlite.py without the csv module: return a list of rows (lists of strings). Follow RFC 4180: fields may be quoted, quoted fields can contain commas, newlines and doubled quotes (""), and rows may end in \n or \r\n. Raise ValueError for an unterminated quote or text right after a closing quote.
