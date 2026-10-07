@@ -80,6 +80,15 @@
     <figcaption id="latency-caption"></figcaption>
   </figure>
 
+  <p>The dots fall into two clumps, and the gap between them isn’t Jev thinking. Jev answers in about a quarter of a second; that is one trip to its servers, which are reached through Los Angeles. The second clump is the same answer plus a new secure connection, whose handshake takes about another half second from here. Claude Code keeps a connection open for a few minutes after it is used, so a prompt sent soon after the last one lands in the fast clump and a prompt after a coffee break lands in the slow one.</p>
+  <p>So the mod now keeps the connection open itself. When it loads, it connects; while you are using the session, it sends one tiny request a minute, which Jev turns away without reading or billing; after fifteen idle minutes it stops. Measured end to end, in real Claude Code sessions, with the old mod and the new:</p>
+
+  <figure class="wide">
+    <div class="figure-title">How long Jev took, before and after keeping the connection open</div>
+    <div id="warm"></div>
+    <figcaption>One run of each, sent as real prompts to fresh Claude Code sessions, with the time read from the mod’s own log. A prompt sent the instant a session opens still pays the handshake, because the connection is still being made.</figcaption>
+  </figure>
+
   <p>A call costs next to nothing. Jev charges <span class="num">$0.042</span> per million input tokens, and a question with its context is a few thousand tokens, so a hundredth of a cent at most. If Jev is slow, unreachable or returns no score, the mod gets out of the way: your own setting applies, and the band says why.</p>
 </section>
 

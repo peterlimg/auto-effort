@@ -103,7 +103,7 @@ function ledger() {
 function latency() {
   const ms = D.latency, left = 20, right = 980, max = 3200, W = 1000
   const tallest = Math.max(...Object.values(ms.reduce((b, v) => ((b[Math.floor(v / 40)] = (b[Math.floor(v / 40)] || 0) + 1), b), {})))
-  const base = 80 + tallest * 9, H = base + 40
+  const base = 80 + tallest * 9, H = base + 50
   const x = v => left + (Math.min(v, max) / max) * (right - left)
   const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Dot plot of Jev response times' })
   // the timeout zone
@@ -122,6 +122,10 @@ function latency() {
     svg.append(dot)
   })
   const p = q => ms[Math.min(ms.length - 1, Math.floor(ms.length * q))]
+  for (const [lo, hi, label] of [[200, 500, 'connection already open'], [700, 1000, 'new connection']]) {
+    const n = ms.filter(v => v >= lo && v < hi).length
+    svg.append(sv('text', { x: x((lo + hi) / 2), y: base + 36, 'text-anchor': 'middle', class: 'annot-soft' }, `${label} (${n})`))
+  }
   for (const [q, label, y] of [[0.5, 'median', 20], [0.9, '9 in 10 within', 44]]) {
     const v = p(q)
     svg.append(sv('line', { x1: x(v), x2: x(v), y1: y - 12, y2: base, stroke: INK, 'stroke-width': 1 }))
@@ -139,6 +143,31 @@ function latency() {
     `${ms.length} answers from Jev, one dot each. ${D.timeouts} of ${D.decisions} calls ran past three seconds; those turns kept the session’s own effort. ` +
     `The fastest answer took ${fmt(ms[0])} ms, the slowest ${fmt(ms[ms.length - 1])} ms.`
   onSeen(svg, () => svg.querySelectorAll('.lat-dot').forEach(d => d.setAttribute('opacity', 0.75)))
+}
+
+// ---------- II. keeping the connection open ----------
+function warm() {
+  const ms = tag => D.warm.find(w => w.prompt.includes(tag))?.ms
+  const rows = [
+    ['After 6 minutes idle', ms('warm-test old 2'), ms('warm-test new 2')],
+    ['First prompt, 5 s after the session opens', ms('warm-start old'), ms('warm-start new')],
+    ['First prompt in a new interactive session', null, ms('fresh-session')],
+    ['A prompt sent the instant a session opens', ms('warm-test old 1'), ms('warm-test new 1')],
+  ].filter(r => r[2])
+  const W = 1000, rowH = 70, top = 10, left = 330, right = 900, H = top + rows.length * rowH
+  const x = v => left + (v / 1000) * (right - left)
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Jev response time before and after the warm-up' })
+  rows.forEach(([label, before, after], i) => {
+    const y = top + i * rowH
+    svg.append(sv('text', { x: left - 20, y: y + 28, 'text-anchor': 'end', class: 'annot' }, label))
+    ;[['old mod', before, 'rgba(42,37,34,.22)'], ['keeps it open', after, PAINT.low]].forEach(([name, v, fill], j) => {
+      const yy = y + 6 + j * 24
+      if (v == null) return svg.append(sv('text', { x: left, y: yy + 15, class: 'annot-soft' }, 'old mod: not measured'))
+      svg.append(sv('rect', { x: left, y: yy, width: x(v) - left, height: 20, fill }))
+      svg.append(sv('text', { x: x(v) + 8, y: yy + 15, class: j ? 'annot' : 'annot-soft' }, `${fmt(v)} ms · ${name}`))
+    })
+  })
+  $('#warm').append(svg)
 }
 
 // ---------- III. the band ----------
@@ -489,6 +518,7 @@ function reveals() {
 
 ledger()
 latency()
+warm()
 simulator()
 yesChart()
 scoreboard()

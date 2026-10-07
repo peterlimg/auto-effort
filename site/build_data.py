@@ -71,9 +71,12 @@ def main():
                          'applies': d.get('applies'), **sample(d)})
 
     cache = cache_stats()
+    # The warm-up's end-to-end checks: tagged prompts sent from fresh sessions with the old and new mod.
+    warm = [{'prompt': d['prompt'], 'ms': d['jev']['ms']} for d in decisions
+            if 'ms' in d['jev'] and any(t in d['prompt'] for t in ('(warm-test old', '(warm-test new', '(warm-start', '(fresh-session'))]
     latency = sorted(d['jev']['ms'] for d in decisions if 'ms' in d['jev'])
     data = {
-        'runs': runs, 'prompts': prompts, 'cache': cache, 'jevTasks': jev_tasks, 'chat': chat, 'latency': latency,
+        'runs': runs, 'prompts': prompts, 'cache': cache, 'warm': warm, 'jevTasks': jev_tasks, 'chat': chat, 'latency': latency,
         'decisions': len(decisions), 'timeouts': sum(d['jev'].get('reason', '').startswith('Jev timed out') for d in decisions),
     }
     (SITE / 'data.js').write_text('window.DATA = ' + json.dumps(data, separators=(',', ':')) + ';\n')

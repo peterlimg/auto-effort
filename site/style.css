@@ -272,6 +272,6 @@ svg text { font-family: var(--sans); }
   .qc-scale li { grid-template-columns: 26px 1fr; }
   .qc-scale li span { grid-column: 2; }
   /* charts keep a readable size and scroll sideways */
-  #latency, #yes-chart, #split, #dumbbell, #deltas { overflow-x: auto; }
-  #latency svg, #yes-chart svg, #split svg, #dumbbell svg, #deltas svg { min-width: 720px; }
+  #latency, #warm, #yes-chart, #split, #dumbbell, #deltas { overflow-x: auto; }
+  #latency svg, #warm svg, #yes-chart svg, #split svg, #dumbbell svg, #deltas svg { min-width: 720px; }
 }
