@@ -56,6 +56,13 @@ async function warm($: EngineInterface) {
   await $.http.fetch(JEV_URL, { method: 'HEAD' }).catch(() => {})
 }
 
+// The band's button and `/auto-effort on|off`: a stale pick must not apply once switched.
+async function setOff($: EngineInterface, off: boolean) {
+  await update($, isOff, () => off)
+  await update($, judgement, () => null)
+  $.ui.status(undefined)
+}
+
 // The session is in use: keep Jev's connection open until it has been idle for WARM_IDLE_MS.
 // Started by the first sign of use, so a mod loaded into a running session warms too.
 async function active($: EngineInterface) {
@@ -256,14 +263,21 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    await $.command.register({ name: 'auto-effort', description: 'Show what auto-effort did on the last turns' })
+    await $.command.register({ name: 'auto-effort', description: 'Show what auto-effort did on the last turns; `on`/`off` to switch it' })
     // Open the connection now for the first prompt, then keep it open while the session is in use.
     await active($)
     void warm($)
     return started
   })
 
-  on('command.run', { command: 'auto-effort' }, async $ => ({ text: report(await $.fs.read(await logPath($)).catch(() => '')) }))
+  on('command.run', { command: 'auto-effort' }, async ($, e) => {
+    const arg = e.args.trim()
+    if (arg === 'on' || arg === 'off') {
+      await setOff($, arg === 'off')
+      return { text: `auto-effort: ${arg}` }
+    }
+    return { text: report(await $.fs.read(await logPath($)).catch(() => '')) }
+  })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
@@ -278,11 +292,7 @@ export const register: Register = (on, options) => {
       <Button
         key="toggle"
         label={off ? 'Turn on' : 'Turn off'}
-        onPress={async () => {
-          await update($, isOff, v => !v)
-          await update($, judgement, () => null)
-          $.ui.status(undefined)
-        }}
+        onPress={() => setOff($, !off)}
       />
     )
     // One line: `<>...</>` is a column Box here, so every group of parts is a row Box.

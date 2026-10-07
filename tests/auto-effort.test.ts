@@ -207,6 +207,19 @@ test('/auto-effort reports each turn from the mod\'s own log: what Jev picked an
   expect(text).toMatch(/^low\s+medium\s+2\s+42\s+low 0\.20 \(80%\)\s+what is 2\+2$/m)
 })
 
+test('/auto-effort off stops asking Jev and /auto-effort on resumes', async ($, on) => {
+  const s = await setup($, on)
+  const run = async (args: string) => ((await $.command.run({ command: 'auto-effort', args, origin: typed } as any)) as any).text as string
+
+  expect(await run('off')).toBe('auto-effort: off')
+  await $.prompt.submit({ origin: typed, text: 'refactor the parser' } as any)
+  expect(s.bodies.length).toBe(0)
+
+  expect(await run(' on ')).toBe('auto-effort: on')
+  await $.prompt.submit({ origin: typed, text: 'refactor the parser' } as any)
+  expect(s.bodies.length).toBe(1)
+})
+
 test('by default Jev only lowers: a pick above the session effort is capped there, and the band says so', async ($, on) => {
   const s = await setup($, on)
   await s.step() // a request shows the session's effort (medium)

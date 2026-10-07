@@ -23,7 +23,7 @@ Without a key, or when Jev fails or takes over 3s, your own `/effort` applies.
 ## Use
 
 - **The band above the prompt** shows the level in use, whether the request was actually sent at it (`✓ sent`), Jev's confidence, and a **Turn off / Turn on** button.
-- **`/auto-effort`** prints the last turns: what Jev picked, what each turn's requests ran at, and how many turns were lowered or raised from your session's effort.
+- **`/auto-effort`** prints the last turns: what Jev picked, what each turn's requests ran at, and how many turns were lowered or raised from your session's effort. `/auto-effort off` and `/auto-effort on` switch it, like the band's button.
 - **`~/.claude/auto-effort/decisions.jsonl`** keeps one JSON line per judged prompt and per turn.
 
 ## Settings
