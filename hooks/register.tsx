@@ -7,6 +7,10 @@ const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
 const TIMEOUT_MS = 3000
 const LOG_LINES = 1000
 const REPORT_TURNS = 12
+// A fresh TLS connection to Jev costs ~550ms on top of its ~250ms answer, and an idle one is dropped within a few
+// minutes. So while the session is in use, an unauthenticated HEAD (a free 405) keeps the host's connection open.
+const WARM_EVERY_MS = 60_000
+const WARM_IDLE_MS = 15 * 60_000
 // Where a prompt a person wrote comes from: typed, Remote Control, `claude -p`, a /loop or routine, a chat channel,
 // or a channel the engine can't attest. Every other origin is model- or agent-authored.
 const PERSON_ORIGINS = new Set<string | undefined>(['composer', 'bridge', 'sdk', 'scheduled-trigger', 'channel', 'unclassified'])
@@ -41,6 +45,24 @@ function withTimeout<T>($: EngineInterface, ms: number, work: Promise<T>): Promi
   const stop = new AbortController()
   const timeout = $.clock.sleep(ms, { signal: stop.signal }).then(() => null, () => new Promise<never>(() => {}))
   return Promise.race([work, timeout]).finally(() => stop.abort())
+}
+
+// ponytail: module-level, reset by a reload; at worst one prompt pays the handshake again
+let lastActive = 0
+let warming: unknown = null
+
+async function warm($: EngineInterface) {
+  if (!(await $.env.get('TYPESAFE_API_KEY')) || (await read($, isOff))) return
+  await $.http.fetch(JEV_URL, { method: 'HEAD' }).catch(() => {})
+}
+
+// The session is in use: keep Jev's connection open until it has been idle for WARM_IDLE_MS.
+// Started by the first sign of use, so a mod loaded into a running session warms too.
+async function active($: EngineInterface) {
+  lastActive = await $.clock.now()
+  warming ??= $.clock.every(WARM_EVERY_MS, async () => {
+    if ((await $.clock.now()) - lastActive < WARM_IDLE_MS) await warm($)
+  })
 }
 
 async function judge($: EngineInterface, text: string, before: string | null, reply: string | null): Promise<Judgement> {
@@ -122,6 +144,7 @@ export const register: Register = (on, options) => {
     // Only requests a person wrote are judged. A subagent's report, a task notification or a peer's message
     // continues the work already running: it keeps the current pick and isn't the "previous request" either.
     if (!PERSON_ORIGINS.has(e.origin?.kind)) return next(e)
+    await active($)
     // Typed during a running turn (e.turnId): with ctrl+x enter (e.wait) it waits to run as its own turn, so its
     // pick waits too and turn.start applies it; otherwise it's an aside delivered into the running task.
     const waits = Boolean(e.turnId && e.wait)
@@ -215,6 +238,7 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     // What the agent last proposed or asked: a "yes, fix" approves that, so Jev needs it. Its end carries the ask.
     if (!e.agentId && e.answer) await update($, lastReply, () => e.answer.slice(-1500))
+    await active($)
     const r = await read($, run)
     if (!e.agentId && r?.turnId === e.turnId) {
       await update($, run, () => null)
@@ -233,6 +257,9 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({ name: 'auto-effort', description: 'Show what auto-effort did on the last turns' })
+    // Open the connection now for the first prompt, then keep it open while the session is in use.
+    await active($)
+    void warm($)
     return started
   })
 

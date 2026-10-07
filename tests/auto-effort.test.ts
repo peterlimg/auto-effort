@@ -15,6 +15,7 @@ async function setup($: any, on: any) {
     hangs: false,
     duringStep: undefined as (() => Promise<unknown>) | undefined, // runs while a model request streams
     bodies: [] as any[],
+    heads: 0, // warm-up HEADs that kept the connection to Jev open
     log: '',
     sent: [] as unknown[],
     step: async (agentId?: string) => {
@@ -23,6 +24,7 @@ async function setup($: any, on: any) {
     shows: async (text: RegExp) => expect(await band.find({ type: 'Text', text })).toBeDefined(),
   }
   on('http.fetch', async (_: any, e: any) => {
+    if (e.init?.method === 'HEAD') { s.heads++; return { value: { status: 405, ok: false, headers: {}, text: '' } } }
     s.bodies.push(JSON.parse(e.init.body))
     if (s.hangs) await clock.sleep(60_000)
     return { value: s.jev }
@@ -233,4 +235,23 @@ test('a short approval is judged with the end of the last reply: what it approve
   expect(state).toMatchObject({ previous_request: 'do next', request: 'yes, fix' })
   expect(state.last_reply.endsWith('Should I add the cap and commit it?')).toBe(true)
   expect(state.last_reply.length).toBe(1500)
+})
+
+test('the connection to Jev is kept warm while the session is in use, and left to close once idle', async ($, on) => {
+  on('session.start', (_: any, e: any) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'auto-effort' } }))
+  const s = await setup($, on)
+  await $.session.start({ cwd: '/w' } as any)
+  await s.clock.advance(1) // the warm-up runs beside session start, not before it
+  expect(s.heads).toBe(1) // the first prompt finds the connection open
+  await s.clock.advance(60_000)
+  expect(s.heads).toBe(2)
+  await s.clock.advance(15 * 60_000) // nobody typed for 15 minutes: no more warm-ups
+  const idle = s.heads
+  await s.clock.advance(5 * 60_000)
+  expect(s.heads).toBe(idle)
+  await $.prompt.submit({ origin: typed, text: 'back again' } as any)
+  await s.clock.advance(60_000)
+  expect(s.heads).toBe(idle + 1)
+  expect(s.bodies.length).toBe(1) // the warm-ups never asked Jev anything
 })
