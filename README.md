@@ -3,7 +3,7 @@
 A Claude Code mod that picks `/effort` for each prompt. [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) (TypeSafe AI) grades how hard the request is, and the turn's model requests run at that level: `low`, `medium`, `high`, `xhigh` or `max`. By default it only lowers effort below your own setting; raising is opt-in (see Settings).
 
 ```
-» auto-effort ▰▰▰▱▱ effort HIGH ✓ sent  (was medium) · Jev 84% sure · 300ms [Turn off]
+» auto-effort ▰▰▱▱▱ effort MEDIUM ✓ sent  (was high) · Jev 84% sure · 300ms [Turn off]
 ```
 
 ## Install
@@ -36,7 +36,7 @@ In the benchmark below, lowering from `high` cut thinking tokens 27% with no cha
 
 - Each prompt you write is sent to Jev as one Score question, with your previous prompt as context, so "yes" or "continue" is judged against the task it continues.
 - Only the main conversation is changed. Subagents, slash-command turns and models without an effort setting keep your own effort.
-- A message sent while a task runs can only raise its effort. A prompt queued with ctrl+x enter is judged for its own turn.
+- A message sent while a task runs can only raise its effort (up to your setting, unless `raise` is on). A prompt queued with ctrl+x enter is judged for its own turn.
 - Messages you didn't write (subagent reports, notifications) aren't judged.
 
 ## Benchmark
