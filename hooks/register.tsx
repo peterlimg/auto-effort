@@ -61,7 +61,6 @@ async function warm($: EngineInterface) {
 async function setOff($: EngineInterface, off: boolean) {
   await update($, isOff, () => off)
   await update($, judgement, () => null)
-  $.ui.status(undefined)
 }
 
 // The session is in use: keep Jev's connection open until it has been idle for WARM_IDLE_MS.
@@ -177,7 +176,6 @@ export const register: Register = (on, options) => {
     // A message typed during a running turn must not unset the running task's pick while Jev answers.
     if (!e.turnId) {
       await update($, judgement, () => ({ phase: 'asking' }))
-      $.ui.status('effort: asking Jev...')
     }
     const judged = await judge($, e.text, before, await read($, lastReply)).catch((): Judgement => ({ phase: 'kept', reason: 'Jev unreachable' }))
     // An aside can only raise a running pick. With none running the turn is at the session's effort,
@@ -187,11 +185,7 @@ export const register: Register = (on, options) => {
       j = current
     }
     if (waits) await update($, queued, () => ({ text: e.text, judgement: judged }))
-    else {
-      await update($, judgement, () => j)
-      const use = j?.phase === 'picked' ? applied(j.pick, await read($, sessionEffort), canRaise) : undefined
-      $.ui.status(j?.phase === 'picked' ? `effort: ${use} (jev ${j.confidence.toFixed(2)})` : undefined)
-    }
+    else await update($, judgement, () => j)
     await log($, {
       kind: 'decision',
       at: new Date(await $.clock.now()).toISOString(),
@@ -306,24 +300,34 @@ export const register: Register = (on, options) => {
         {below}
       </Box>
     )
-    // The effort a turn runs at when the mod doesn't change it, once a request has shown it.
-    const sessionText = session === null ? 'session effort' : `session effort ${String(session).toUpperCase()}`
+    // A 5-cell gauge, filled up to the level the turn runs at: ▰▰▰▱▱ = high.
+    const level = (use: Effort, tail: JSX.Element) => {
+      const n = LEVELS.indexOf(use) + 1
+      return row(
+        <Box flexDirection="row">
+          <Text color={COLORS[use]}>{'▰'.repeat(n) + '▱'.repeat(LEVELS.length - n)}</Text>
+          <Text color={COLORS[use]} bold>{` effort ${use.toUpperCase()}`}</Text>
+          {tail}
+        </Box>,
+      )
+    }
+    // No pick applies: the session's own effort, drawn like a pick once a request has shown it.
+    const unpicked = (note: JSX.Element) => LEVELS.includes(session as Effort)
+      ? level(session as Effort, <Box flexDirection="row"><Text dimColor>{' · '}</Text>{note}</Box>)
+      : row(note)
 
-    if (off) return row(<Text dimColor>{`off · ${sessionText} applies `}</Text>)
-    if (!j) return row(<Text dimColor>{`on · ${sessionText} until the next prompt `}</Text>)
+    if (off) return unpicked(<Text dimColor>{'off, session effort applies '}</Text>)
+    if (!j) return unpicked(<Text dimColor>{'session effort until the next prompt '}</Text>)
     if (j.phase === 'asking') return row(<Text dimColor>◌ asking Jev... </Text>)
     if (j.phase === 'kept') {
-      return row(<Box flexDirection="row"><Text color="yellow">{`kept ${sessionText}`}</Text><Text dimColor>{` · ${j.reason} `}</Text></Box>)
+      return unpicked(<Box flexDirection="row"><Text color="yellow">kept session effort</Text><Text dimColor>{` · ${j.reason} `}</Text></Box>)
     }
 
-    // A 5-cell gauge, filled up to the pick: ▰▰▰▱▱ = high.
     const use = applied(j.pick, session, canRaise)
-    const n = LEVELS.indexOf(use) + 1
     const note = (j.from === undefined || j.from === use ? '' : `  (was ${j.from})`) + (use === j.pick ? '' : `  (Jev: ${j.pick}, capped)`)
-    return row(
+    return level(
+      use,
       <Box flexDirection="row">
-        <Text color={COLORS[use]}>{'▰'.repeat(n) + '▱'.repeat(LEVELS.length - n)}</Text>
-        <Text color={COLORS[use]} bold>{` effort ${use.toUpperCase()}`}</Text>
         {j.sent === undefined
           ? <Text dimColor>{' · not sent yet'}</Text>
           : j.sent === use

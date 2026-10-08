@@ -43,7 +43,6 @@ async function setup($: any, on: any) {
     s.log += e.init.stdin
     return { value: { exitCode: 0, stdout: '', stderr: '' } }
   })
-  on('ui.status', () => ({ value: undefined }))
   on('ui.render', () => ({ type: 'Box', props: { flexDirection: 'row' }, children: [{ type: 'Text', children: ['another mod'] }] })) // what's drawn below us in the band
   on('turn.step', async function* (_: any, e: any) {
     s.sent.push(e.effort)
@@ -84,7 +83,8 @@ test('Jev picks the main thread effort and the band shows it; failures, subagent
   await $.prompt.submit({ origin: typed, text: 'hi' } as any)
   await step()
   expect(sent.at(-1)).toBe('medium')
-  await shows(/kept session effort MEDIUM/)
+  await shows(/kept session effort/)
+  await shows(/^▰▰▱▱▱$/) // no pick: the same gauge, at the session effort
   await shows(/Jev HTTP 529/)
   expect(bodies[1].state).toMatchObject({ previous_request: 'redesign the sync engine', request: 'hi' }) // a follow-up is judged with the task before it
 
@@ -101,12 +101,13 @@ test('Jev picks the main thread effort and the band shows it; failures, subagent
 
   await $.prompt.submit({ origin: typed, text: '/effort high' } as any)
   expect(bodies.length).toBe(3)
-  await shows(/on · session effort MEDIUM until the next prompt/) // the toggle stays reachable with no pick
+  await shows(/session effort until the next prompt/) // the toggle stays reachable with no pick
 
   s.jev = scored(4) // Turned off: Jev isn't asked and the session's effort applies
   s.hangs = false
   await s.band.press({ key: 'toggle' })
-  await shows(/off · session effort MEDIUM applies/)
+  await shows(/off, session effort applies/)
+  await shows(/effort MEDIUM/)
   await $.prompt.submit({ origin: typed, text: 'design a new database' } as any)
   await step()
   expect(bodies.length).toBe(3)
